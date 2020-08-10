@@ -58,6 +58,7 @@
       [(parse-token t), ts]))) ; NOTE We cannot use :else here, otherwise it would try to match t as the keyword :else and throw a "No matching clause"
 
 (def parse (comp
+            first
             parse-exp
             tokenize))
 
@@ -78,5 +79,7 @@
   "Compile and eval a baby lisp language"
   [& args]
   (println (-compile "(+ (dec (+ 2 4)) (inc 2))")))
+
+;; (-main)
 
 (-main)

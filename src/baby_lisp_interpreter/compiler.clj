@@ -13,7 +13,7 @@
       (str/split #"\s+") ; Spit on one or more spaces (implications for multiline code?)
       (->> (filter #(not (empty? %)))))) ; Filter out empty strings
 
-;; (tokenize "; This is just a comment\n(+ 1 2)")
+;; (tokenize "; This is just a comment\n(define a 2)\n(+ 1 a)")
 
 (defn numeric? [x]
   (= (str/replace x #"[^0-9]" "") x))
@@ -42,9 +42,9 @@
         ; the base-case, thus an error.
         (nil? t) (throw (Exception. "Could not find closing `)`"))
 
-        ; Base case. Closing paren is implicitly skipped by leaving it out of
-        ; both result and ts.
-        (= t ")") [result, ts]
+        ; Maybe base case. Closing paren is implicitly skipped by leaving it out
+        ; of both result and ts.
+        (= t ")") [result, ts] ; Recur. This means we have more expressions to process. Ex: Multiple top-level exps
 
         ; Otherwise recur, not just here which is essentially a loop, but by
         ; using parse-exp which also calls this fn
@@ -60,9 +60,19 @@
       ")" (throw (Exception. "Unexpected `)`")) ; See NOTE
       [(parse-token t), ts]))) ; NOTE We cannot use :else here, otherwise it would try to match t as the keyword :else and throw a "No matching clause"
 
+; This construct simply ensures that adjacent expressions get parsed
+(defn parse-exp-all [tokens]
+  (loop [parsed []
+         remaining tokens]
+    (if (empty? remaining)
+      parsed
+      (let [[a b] (parse-exp remaining)]
+        (recur (conj parsed a) b)))))
+
+(parse-exp-all (tokenize "; This is just a comment\n(define a 2)\n(+ 1 a)"))
+
 (def parse (comp
-            first
-            parse-exp
+            parse-exp-all
             tokenize))
 
 ; NOTE: Using an atom allows modifying the env, which I will need to support

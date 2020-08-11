@@ -13,9 +13,7 @@
       (str/split #"\s+") ; Spit on one or more spaces (implications for multiline code?)
       (->> (filter #(not (empty? %)))))) ; Filter out empty strings
 
-(def src "; This is just a comment\n(+ 1 2)")
-
-(tokenize src)
+;; (tokenize "; This is just a comment\n(+ 1 2)")
 
 (defn numeric? [x]
   (= (str/replace x #"[^0-9]" "") x))

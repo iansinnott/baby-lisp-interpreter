@@ -65,6 +65,38 @@
             parse-exp
             tokenize))
 
+; NOTE: Using an atom allows modifying the env, which I will need to support
+; variable declarations.
+; NOTE: For now there is clearly not much here, and that's intentional. My
+; thinking is that the point here isn't to define a super interesting language,
+; but to learn how to build an interpreter. To that end a simple env is still
+; sufficient.
+; Clearly if we're interpretting clojure in clojure there are mostly just going
+; to be a bunch of direct mappings from keywords to their exact function
+; counterpart.
+(def env (atom {:+ +
+                :- -
+                :inc inc
+                :dec dec}))
+
+; `eval` is taken in clojure
+(defn lisp-eval [exp env]
+  (cond
+    (number? exp) exp
+    (keyword? exp) (exp @env)
+    (vector? exp) (let [fname (first exp)
+                        f (lisp-eval fname env)
+                        args (map #(lisp-eval % env) (rest exp))]
+                    (if (nil? f)
+                      (throw (Exception. (str "Symbol not found: " fname)))
+                      (apply f args)))
+    :else (throw (Exception. (str "Unknown expression:" exp)))))
+
+(defn lisp-run [^String src]
+  (-> src
+      (parse)
+      (lisp-eval env)))
+
 (defn traverse [& args] (first args))
 
 (defn transform [& args] (first args))

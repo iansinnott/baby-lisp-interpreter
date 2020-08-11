@@ -76,6 +76,17 @@
 ; counterpart.
 (def env (atom {:+ +
                 :- -
+                :* *
+                :/ /
+                :> >
+                :< <
+                :>= >=
+                :<= <=
+                := =
+                :define (fn [k v] (swap! env assoc (keyword k) v))
+                :print print
+                :car first
+                :cdr rest
                 :inc inc
                 :dec dec}))
 

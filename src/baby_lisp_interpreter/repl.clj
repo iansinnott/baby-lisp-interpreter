@@ -1,6 +1,5 @@
 (ns baby-lisp-interpreter.repl
-  (:gen-class)
-  (:require [baby-lisp-interpreter.core :as core]))
+  (:require [baby-lisp-interpreter.compiler :as compiler]))
 
 ;; For now, since I don't know how to arrange clojure projects, run this using:
 ;; $ lein run -m baby-lisp-interpreter.repl
@@ -34,26 +33,20 @@
 
 (defn -run-repl-code [^String src]
   (-> src
-      (core/parse)
+      (compiler/parse)
       (-eval env)))
 
 ; `repl` is taken in clojure
 ; (flush) is needed for displaying the prompt. Print stays in a buffer otherwise.
 ; See: https://clojuredocs.org/clojure.core/read-line
-(defn -repl []
+(defn start-repl []
   (let [prompt (fn [] (do (print "> ") (flush) (read-line)))]
     (loop [input (prompt)]
       (case input
         "exit" (do (println "Exiting") (println "Goodbye!"))
         (recur (do (println (-run-repl-code input)) (prompt)))))))
 
-(defn -main
-  "Compile and eval a baby lisp language"
-  []
-  (-repl))
-
-;; (-main "283")
-;; (core/parse "(+ 1 2)")
+;; (compiler/parse "(+ 1 2)")
 ;; (-run-repl-code "(+ 1 2)")
 ;; (-run-repl-code "(+ (dec (+ 2 4)) (inc 2))")
-;; (core/parse "(+ (dec (+ 2 4)) (inc 2))")
+;; (compiler/parse "(+ (dec (+ 2 4)) (inc 2))")

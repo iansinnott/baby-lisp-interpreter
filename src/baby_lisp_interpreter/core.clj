@@ -81,5 +81,3 @@
   (println (-compile "(+ (dec (+ 2 4)) (inc 2))")))
 
 ;; (-main)
-
-(-main)

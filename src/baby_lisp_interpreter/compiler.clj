@@ -13,13 +13,8 @@
       (str/split #"\s+") ; Spit on one or more spaces (implications for multiline code?)
       (->> (filter #(not (empty? %)))))) ; Filter out empty strings
 
-;; (tokenize "; This is just a comment\n(define a 2)\n(+ 1 a)")
-
 (defn numeric? [x]
   (= (str/replace x #"[^0-9]" "") x))
-
-(numeric? "23")
-(numeric? "t23")
 
 ; NOTE: Keywords are not necessary to encode symbols, they are just something
 ; different than symbols. I thought it was a bit unfair to use the existing
@@ -69,8 +64,6 @@
       (let [[a b] (parse-exp remaining)]
         (recur (conj parsed a) b)))))
 
-(parse-exp-all (tokenize "; This is just a comment\n(define a 2)\n(+ 1 a)"))
-
 (def parse (comp
             parse-exp-all
             tokenize))
@@ -93,7 +86,6 @@
                 :>= >=
                 :<= <=
                 := =
-                :define (fn [k v] (swap! env assoc (keyword k) v))
                 :print print
                 :car first
                 :cdr rest
@@ -101,22 +93,45 @@
                 :dec dec}))
 
 ; `eval` is taken in clojure
+; NOTE: For now I'm just flagging lookup errors. Can consider throwing later
 (defn lisp-eval [exp env]
   (cond
     (number? exp) exp
-    (keyword? exp) (exp @env)
+    (keyword? exp) (exp @env :LOOKUP_ERROR) ; See NOTE
+    (= (first exp) :define) (let [[_ k v] exp]
+                              (swap! env assoc k v)
+                              (println (str "Defined: " {k v})))
     (vector? exp) (let [fname (first exp)
                         f (lisp-eval fname env)
-                        args (map #(lisp-eval % env) (rest exp))]
+                        args (map (fn
+                                    [x]
+                                    (let [v (lisp-eval x env)]
+                                      (if (= v :LOOKUP_ERROR)
+                                        (throw (Exception. (str "Unknown Symbol: " x)))
+                                        v)))
+                                  (rest exp))]
                     (if (nil? f)
-                      (throw (Exception. (str "Symbol not found: " fname)))
+                      (throw (Exception. (str "Symbol is not a function: " fname)))
                       (apply f args)))
     :else (throw (Exception. (str "Unknown expression:" exp)))))
+
+(defn lisp-eval-all [expressions env]
+  (reduce #(lisp-eval %2 env) "" expressions))
 
 (defn lisp-run [^String src]
   (-> src
       (parse)
-      (lisp-eval env)))
+      (lisp-eval-all env)))
+
+;; (parse "; This is just a comment\n(define a 2)\n(+ 1 a)")
+;; (parse "(+ 1 a)")
+;; (lisp-run "(+ 1 1)")
+;; (lisp-run "(inc 2)\n(print (+ 1 2) (inc 5))")
+;; (lisp-run "(print %ENV)")
+;; (lisp-run "(define a 4)\n(print %ENV)")
+
+
+
 
 (defn traverse [& args] (first args))
 
@@ -130,3 +145,5 @@
       (parse)
       (transform)
       (generate-code)))
+
+

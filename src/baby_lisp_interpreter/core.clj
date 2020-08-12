@@ -18,8 +18,12 @@
   (let [prompt (fn [] (do (print "> ") (flush) (read-line)))]
     (loop [input (prompt)]
       (case input
-        "exit" (do (println "Exiting") (println "Goodbye!"))
+        "exit" (println "Goodbye!")
         (recur (do (println (compiler/lisp-run input)) (prompt)))))))
+
+(defn -filepath-or-src [s]
+  (try (slurp s)
+       (catch Exception _ s)))
 
 (defn -main
   "Compile and eval a baby lisp language"
@@ -27,18 +31,14 @@
   (let [cmd (first args)]
     (case cmd
       "repl" (start-repl)
-      "ast" (let [filepath-or-src (second args)
-                  src (try (slurp filepath-or-src)
-                           (catch Exception _ filepath-or-src))]
+      "ast" (let [s (second args)
+                  src (-filepath-or-src s)]
               (clojure.pprint/pprint (compiler/parse src)))
-      "run" (let [filepath (second args)]
-              (if (nil? filepath)
-                (throw (Exception. "[ERR] Must provide a path to the file to run"))
-                (let [code-str (slurp filepath)]
-                  (println
-                   "GOT ALL THIS CODE:"
-                   "-----------------"
-                   code-str))))
+      "run" (let [s (second args)]
+              (if (nil? s)
+                (throw (Exception. "[ERR] Must provide a path to the file to run or string"))
+                (let [code-str (-filepath-or-src s)]
+                  (compiler/lisp-run code-str))))
       (-print-help))))
 
-;; (-main)
+;; (-main "run" "(+ 2 4)")

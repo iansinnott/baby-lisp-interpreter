@@ -110,7 +110,6 @@
                 :dec dec}))
 
 ; `eval` is taken in clojure
-; NOTE: For now I'm just flagging lookup errors. Can consider throwing later
 (defn lisp-eval [exp env]
   (cond
     ;; Primatives
@@ -118,11 +117,20 @@
     (string? exp) exp
 
     ;; An environment lookup. I.e. a variable reference
+    ;; NOTE: For now I'm just flagging lookup errors. Can consider throwing
+    ;; later
     (keyword? exp) (exp @env :LOOKUP_ERROR) ; See NOTE
 
     ;; Define a var in the global scope
+    ;; NOTE It's very important to recurse on the value passed to define. This
+    ;; threw me off for a while when implementing lambdas. You call define and
+    ;; it defines something all right but what it defines is just the AST for
+    ;; the lambda, not the actual lambda. So we need to recurse. Makes sense
+    ;; after the fact of course. Shows what trouble can arrise form using only
+    ;; simple values initially. It just so happened that they had all been
+    ;; strings or numbers, so it didn't matter that they weren't recursed on.
     (= :define (first exp)) (let [[_ k raw-v] exp
-                                  v (lisp-eval raw-v env)]
+                                  v (lisp-eval raw-v env)] ;; See NOTE
                               (swap! env assoc k v)
                               (println "[INFO] Bound " k " -> " (prn-str v)))
 

@@ -13,6 +13,22 @@
       (str/split #"\s+") ; Spit on one or more spaces (implications for multiline code?)
       (->> (filter #(not (empty? %)))))) ; Filter out empty strings
 
+(defn string-like? [^String x]
+  (and (= (first x) \") (= (last x) \")))
+
+(defn strip-quotes [^String x]
+  (-> x
+      (str/replace #"(^\"|\"$)" "")))
+
+(comment
+  "Comments are left here so you can try things out"
+  (tokenize "(+ 1 2)")
+  (-> "\"sup\""
+      tokenize
+      first
+      first
+      class))
+
 (defn numeric? [x]
   (= (str/replace x #"[^0-9]" "") x))
 
@@ -24,6 +40,7 @@
   [t]
   (cond
     (numeric? t) (Integer. t)
+    (string-like? t) (strip-quotes t)
     :else (keyword t))) ; See NOTE
 
 (defn read-seq
@@ -97,10 +114,14 @@
 (defn lisp-eval [exp env]
   (cond
     (number? exp) exp
+    (string? exp) exp
     (keyword? exp) (exp @env :LOOKUP_ERROR) ; See NOTE
-    (= (first exp) :define) (let [[_ k v] exp]
+    (= :define (first exp)) (let [[_ k v] exp]
                               (swap! env assoc k v)
                               (println (str "Defined: " {k v})))
+    (= :if (first exp)) (let [[condition succ fail] (-> exp rest vec)
+                              passed (lisp-eval condition env)]
+                          (if passed (lisp-eval succ env) (lisp-eval fail env)))
     (vector? exp) (let [fname (first exp)
                         f (lisp-eval fname env)
                         args (map (fn
@@ -123,15 +144,15 @@
       (parse)
       (lisp-eval-all env)))
 
-;; (parse "; This is just a comment\n(define a 2)\n(+ 1 a)")
-;; (parse "(+ 1 a)")
-;; (lisp-run "(+ 1 1)")
-;; (lisp-run "(inc 2)\n(print (+ 1 2) (inc 5))")
-;; (lisp-run "(print %ENV)")
-;; (lisp-run "(define a 4)\n(print %ENV)")
-
-
-
+(comment
+  (parse "; This is just a comment\n(define a 2)\n(+ 1 a)")
+  (parse "(+ 1 a)")
+  (lisp-run "(+ 1 1)")
+  (lisp-run "(inc 2)\n(print (+ 1 2) (inc 5))")
+  (try (lisp-run "(print %ENV)")
+       (catch Exception e (println (str "Failed: " (.getMessage e)))))
+  (try (lisp-run "(define a 4)\n(print %ENV)")
+       (catch Exception e (println (str "Failed: " (.getMessage e))))))
 
 (defn traverse [& args] (first args))
 
@@ -145,3 +166,15 @@
       (parse)
       (transform)
       (generate-code)))
+
+(comment
+  (let [conditional  "(if (= 1 (- 2 1)) (print \"t\") (print \"f\"))"]
+    (let [[a b c] (-> conditional
+                      parse
+                      first
+                      rest
+                      vec)]
+      (println "a" a)
+      (println "b" b)
+      (println "c" c))
+    (-> conditional parse (lisp-eval-all env))))

@@ -21,6 +21,7 @@
         "exit" (println "Goodbye!")
         (recur (do (println (compiler/lisp-run input)) (prompt)))))))
 
+; Tries the given string as a filepath, then returns the string if that fails.
 (defn -filepath-or-src [s]
   (try (slurp s)
        (catch Exception _ s)))

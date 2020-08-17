@@ -18,7 +18,7 @@
 
 ; NOTE: Keywords are not necessary to encode symbols, they are just something
 ; different than symbols. I thought it was a bit unfair to use the existing
-; clojure symbols since we're trying to write a full 
+; clojure symbols since we're trying to write a full
 (defn parse-token
   "Parse an individual token"
   [t]
@@ -145,5 +145,3 @@
       (parse)
       (transform)
       (generate-code)))
-
-

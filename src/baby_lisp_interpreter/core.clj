@@ -19,7 +19,7 @@
     (loop [input (prompt)]
       (case input
         "exit" (println "Goodbye!")
-        (recur (do (println (compiler/lisp-run input)) (prompt)))))))
+        (recur (do (prn (compiler/lisp-run input)) (prompt)))))))
 
 ; Tries the given string as a filepath, then returns the string if that fails.
 (defn -filepath-or-src [s]

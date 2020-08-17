@@ -113,15 +113,36 @@
 ; NOTE: For now I'm just flagging lookup errors. Can consider throwing later
 (defn lisp-eval [exp env]
   (cond
+    ;; Primatives
     (number? exp) exp
     (string? exp) exp
+
+    ;; An environment lookup. I.e. a variable reference
     (keyword? exp) (exp @env :LOOKUP_ERROR) ; See NOTE
-    (= :define (first exp)) (let [[_ k v] exp]
+
+    ;; Define a var in the global scope
+    (= :define (first exp)) (let [[_ k raw-v] exp
+                                  v (lisp-eval raw-v env)]
                               (swap! env assoc k v)
-                              (println (str "Defined: " {k v})))
+                              (println "[INFO] Bound " k " -> " (prn-str v)))
+
+    ;; If expression
     (= :if (first exp)) (let [[condition succ fail] (-> exp rest vec)
                               passed (lisp-eval condition env)]
                           (if passed (lisp-eval succ env) (lisp-eval fail env)))
+
+    ;; The quote helper. Quote a list
+    (= :quote (first exp)) (let [[_ xs] exp] xs)
+
+    ;; Define a function (anon function)
+    ;; NOTE Since Atoms are reference types and lisp-eval expects an atom we
+    ;; need to create a new local atom when we evaluate
+    (= :lambda (first exp)) (let [[_ args body] exp] (fn [& vals]
+                                                       (let [local-env (zipmap args vals)
+                                                             merged-env (atom (merge @env local-env))] ;; See NOTE
+                                                         (lisp-eval body merged-env))))
+
+    ;; Function call
     (vector? exp) (let [fname (first exp)
                         f (lisp-eval fname env)
                         args (map (fn
@@ -134,6 +155,8 @@
                     (if (nil? f)
                       (throw (Exception. (str "Symbol is not a function: " fname)))
                       (apply f args)))
+
+    ;; Something invalid or unsupported
     :else (throw (Exception. (str "Unknown expression:" exp)))))
 
 (defn lisp-eval-all [expressions env]
@@ -177,4 +200,12 @@
       (println "a" a)
       (println "b" b)
       (println "c" c))
-    (-> conditional parse (lisp-eval-all env))))
+    (-> conditional parse (lisp-eval-all env)))
+  (-> "(quote (3 2 1))"
+      lisp-run)
+
+  (->  "(define runme (lambda (x y) (+ x y)))\n(print (runme 2 3))"
+       lisp-run)
+
+  (-> "((lambda () (print \"Func\")))"
+      lisp-run))

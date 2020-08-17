@@ -10,6 +10,7 @@ I wanted to learn more about compilation so I started looking at some resources:
 
 You can run the REPL through Lein
 
-```
-$ lein run -m baby-lisp-interpreter.repl
+```sh
+# Run the repl
+lein run -- repl
 ```

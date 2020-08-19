@@ -2,6 +2,30 @@
   (:gen-class)
   (:require [clojure.string :as str]))
 
+
+;; NOTE: Using an atom allows modifying the env, which I will need to support
+;; variable declarations.
+;; NOTE: For now there is clearly not much here, and that's intentional. My
+;; thinking is that the point here isn't to define a super interesting language,
+;; but to learn how to build an interpreter. To that end a simple env is still
+;; sufficient. Clearly if we're interpretting clojure in clojure there are
+;; mostly just going to be a bunch of direct mappings from keywords to their
+;; exact function counterpart.
+(def env (atom {:+ +
+                :- -
+                :* *
+                :/ /
+                :> >
+                :< <
+                :>= >=
+                :<= <=
+                := =
+                :print print
+                :car first
+                :cdr rest
+                :inc inc
+                :dec dec}))
+
 ; Must declare any "cyclical" function reference, i.e as is the case with
 ; parse<->read-seq
 (declare parse-exp read-seq parse-token)
@@ -85,29 +109,11 @@
             parse-exp-all
             tokenize))
 
-; NOTE: Using an atom allows modifying the env, which I will need to support
-; variable declarations.
-; NOTE: For now there is clearly not much here, and that's intentional. My
-; thinking is that the point here isn't to define a super interesting language,
-; but to learn how to build an interpreter. To that end a simple env is still
-; sufficient.
-; Clearly if we're interpretting clojure in clojure there are mostly just going
-; to be a bunch of direct mappings from keywords to their exact function
-; counterpart.
-(def env (atom {:+ +
-                :- -
-                :* *
-                :/ /
-                :> >
-                :< <
-                :>= >=
-                :<= <=
-                := =
-                :print print
-                :car first
-                :cdr rest
-                :inc inc
-                :dec dec}))
+;; This helper might be interesting later, for now it's just handling functions
+(defn repl-print [x]
+  (cond
+    (fn? x) "fn"
+    :else (pr-str x)))
 
 ; `eval` is taken in clojure
 (defn lisp-eval [exp env]
@@ -122,6 +128,9 @@
     (keyword? exp) (exp @env :LOOKUP_ERROR) ; See NOTE
 
     ;; Define a var in the global scope
+    ;; NOTE Not sure about this whole lambda define thing. I'm basically using
+    ;; define as a macro, turning the shorthand syntax into the longhand
+    ;; (define (square x) (* x x)) -> (define square (lambda (x) (* x x)))
     ;; NOTE It's very important to recurse on the value passed to define. This
     ;; threw me off for a while when implementing lambdas. You call define and
     ;; it defines something all right but what it defines is just the AST for
@@ -129,10 +138,14 @@
     ;; after the fact of course. Shows what trouble can arrise form using only
     ;; simple values initially. It just so happened that they had all been
     ;; strings or numbers, so it didn't matter that they weren't recursed on.
-    (= :define (first exp)) (let [[_ k raw-v] exp
-                                  v (lisp-eval raw-v env)] ;; See NOTE
+    (= :define (first exp)) (let [[_ raw-k raw-v] exp
+                                  k (if (vector? raw-k) (first raw-k) raw-k)
+                                  v-body (if (vector? raw-k)
+                                           [:lambda (vec (rest raw-k)) raw-v] ;; Hrm, see NOTE
+                                           raw-v)
+                                  v (lisp-eval v-body env)] ;; See NOTE
                               (swap! env assoc k v)
-                              (println "[INFO] Bound " k " -> " (prn-str v)))
+                              (println "[INFO] Bound " k " -> " (repl-print v)))
 
     ;; If expression
     (= :if (first exp)) (let [[condition succ fail] (-> exp rest vec)
@@ -145,12 +158,14 @@
     ;; Define a function (anon function)
     ;; NOTE Since Atoms are reference types and lisp-eval expects an atom we
     ;; need to create a new local atom when we evaluate
-    (= :lambda (first exp)) (let [[_ args body] exp] (fn [& vals]
-                                                       (let [local-env (zipmap args vals)
-                                                             merged-env (atom (merge @env local-env))] ;; See NOTE
-                                                         (lisp-eval body merged-env))))
+    (= :lambda (first exp)) (let [[_ args body] exp]
+                              (fn [& vals]
+                                (let [local-env (zipmap args vals)
+                                      merged-env (atom (merge @env local-env))] ;; See NOTE
+                                  (lisp-eval body merged-env))))
 
     ;; Function call
+    ;; TODO Could this take any sequence? Am I doing antyhing that _requires_ ;; vectors?
     (vector? exp) (let [fname (first exp)
                         f (lisp-eval fname env)
                         args (map (fn
@@ -212,8 +227,12 @@
   (-> "(quote (3 2 1))"
       lisp-run)
 
-  (->  "(define runme (lambda (x y) (+ x y)))\n(print (runme 2 3))"
+  (-> "(define runme (lambda (x y) (+ x y)))\n(print (runme 2 3))"
        lisp-run)
+
+  (-> "(define (square x) (* x x))
+       (print (square 8))"
+      lisp-run)
 
   (-> "((lambda () (print \"Func\")))"
       lisp-run))

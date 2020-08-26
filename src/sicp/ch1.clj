@@ -13,3 +13,10 @@
 
 (comment
   (sum-square-largest-2 2 3 4))
+
+(defn p [] (p))
+
+(defn text-xy [x y]
+  (if (= 0 x) 0 y))
+
+(text-xy 0 (p))
